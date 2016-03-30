@@ -1,0 +1,4 @@
+lib*.a
+.*.swp
+*.o
+xcuserdata
