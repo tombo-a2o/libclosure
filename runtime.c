@@ -14,7 +14,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <dlfcn.h>
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_IPHONE_SIMULATOR || TARGET_OS_EMSCRIPTEN
 // workaround: 10682842
 #define os_assumes(_x) (_x)
 #define os_assert(_x) if (!(_x)) abort()
@@ -26,6 +26,9 @@
 #ifndef os_assert
 #define os_assert(_x) os_assert(_x)
 #endif
+#endif
+#if TARGET_OS_EMSCRIPTEN
+#define __unused
 #endif
 
 #if TARGET_OS_WIN32
