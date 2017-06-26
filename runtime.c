@@ -14,7 +14,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <dlfcn.h>
-#if TARGET_IPHONE_SIMULATOR || TARGET_OS_EMSCRIPTEN
+#if TARGET_IPHONE_SIMULATOR || defined(A2O_EMSCRIPTEN)
 // workaround: 10682842
 #define os_assumes(_x) (_x)
 #define os_assert(_x) if (!(_x)) abort()
@@ -27,22 +27,22 @@
 #define os_assert(_x) os_assert(_x)
 #endif
 #endif
-#if TARGET_OS_EMSCRIPTEN
+#if defined(A2O_EMSCRIPTEN)
 #define __unused
 #endif
 
 #if TARGET_OS_WIN32
 #define _CRT_SECURE_NO_WARNINGS 1
 #include <windows.h>
-static __inline bool OSAtomicCompareAndSwapLong(long oldl, long newl, long volatile *dst) 
-{ 
+static __inline bool OSAtomicCompareAndSwapLong(long oldl, long newl, long volatile *dst)
+{
     // fixme barrier is overkill -- see objc-os.h
     long original = InterlockedCompareExchange(dst, newl, oldl);
     return (original == oldl);
 }
 
-static __inline bool OSAtomicCompareAndSwapInt(int oldi, int newi, int volatile *dst) 
-{ 
+static __inline bool OSAtomicCompareAndSwapInt(int oldi, int newi, int volatile *dst)
+{
     // fixme barrier is overkill -- see objc-os.h
     int original = InterlockedCompareExchange(dst, newi, oldi);
     return (original == oldi);
@@ -246,7 +246,7 @@ void _Block_use_GC5( void *(*alloc)(const unsigned long, const bool isOne, const
     _Block_use_GC(alloc, setHasRefcount, gc_assign, gc_assign_weak, _Block_memmove_gc_broken);
 }
 
- 
+
 // Called from objc-auto to alternatively turn on retain/release.
 // Prior to this the only "object" support we can provide is for those
 // super special objects that live in libSystem, namely dispatch queues.
@@ -303,7 +303,7 @@ static __inline bool _Block_has_layout(struct Block_layout *aBlock) {
         desc += sizeof(struct Block_descriptor_2);
     }
     return ((struct Block_descriptor_3 *)desc)->layout != NULL;
-}    
+}
 
 static void _Block_call_copy_helper(void *result, struct Block_layout *aBlock)
 {
@@ -334,8 +334,8 @@ static void *_Block_copy_internal(const void *arg, const bool wantsOne) {
     struct Block_layout *aBlock;
 
     if (!arg) return NULL;
-    
-    
+
+
     // The following would be better done as a switch statement
     aBlock = (struct Block_layout *)arg;
     if (aBlock->flags & BLOCK_NEEDS_FREE) {
@@ -407,7 +407,7 @@ static void *_Block_copy_internal(const void *arg, const bool wantsOne) {
 static void _Block_byref_assign_copy(void *dest, const void *arg, const int flags) {
     struct Block_byref **destp = (struct Block_byref **)dest;
     struct Block_byref *src = (struct Block_byref *)arg;
-        
+
     if (src->forwarding->flags & BLOCK_BYREF_IS_GC) {
         ;   // don't need to do any more work
     }
@@ -461,7 +461,7 @@ static void _Block_byref_release(const void *arg) {
 
     // dereference the forwarding pointer since the compiler isn't doing this anymore (ever?)
     byref = byref->forwarding;
-    
+
     // To support C++ destructors under GC we arrange for there to be a finalizer for this
     // by using an isa that directs the code to a finalizer that calls the byref_destroy method.
     if ((byref->flags & BLOCK_BYREF_NEEDS_FREE) == 0) {
@@ -498,7 +498,7 @@ void *_Block_copy(const void *arg) {
 // API entry point to release a copied Block
 void _Block_release(const void *arg) {
     struct Block_layout *aBlock = (struct Block_layout *)arg;
-    if (!aBlock 
+    if (!aBlock
         || (aBlock->flags & BLOCK_IS_GLOBAL)
         || ((aBlock->flags & (BLOCK_IS_GC|BLOCK_NEEDS_FREE)) == 0)
         ) return;
@@ -601,7 +601,7 @@ const char * _Block_extended_layout(void *aBlock)
     struct Block_descriptor_3 *desc3 = _Block_descriptor_3(aBlock);
     if (!desc3) return NULL;
 
-    // Return empty string (all non-object bytes) instead of NULL 
+    // Return empty string (all non-object bytes) instead of NULL
     // so callers can distinguish "empty layout" from "no layout".
     if (!desc3->layout) return "";
     else return desc3->layout;
@@ -611,7 +611,7 @@ const char * _Block_extended_layout(void *aBlock)
 #pragma mark Compiler SPI entry points
 #endif
 
-    
+
 /*******************************************************
 
 Entry points used by the compiler - the real API!
@@ -640,7 +640,7 @@ So the __block copy/dispose helpers will generate flag values of 3 or 7 for obje
 	__block (^Block)             128+7       (0x87)
     __weak __block id            128+3+16    (0x93)
 	__weak __block (^Block)      128+7+16    (0x97)
-        
+
 
 ********************************************************/
 
@@ -655,7 +655,7 @@ void _Block_object_assign(void *destAddr, const void *object, const int flags) {
         id object = ...;
         [^{ object; } copy];
         ********/
-            
+
         _Block_retain_object(object);
         _Block_assign((void *)object, destAddr);
         break;
@@ -668,7 +668,7 @@ void _Block_object_assign(void *destAddr, const void *object, const int flags) {
 
         _Block_assign(_Block_copy_internal(object, false), destAddr);
         break;
-    
+
       case BLOCK_FIELD_IS_BYREF | BLOCK_FIELD_IS_WEAK:
       case BLOCK_FIELD_IS_BYREF:
         /*******
@@ -677,10 +677,10 @@ void _Block_object_assign(void *destAddr, const void *object, const int flags) {
          __weak __block ... x;
          [^{ x; } copy];
          ********/
-        
+
         _Block_byref_assign_copy(destAddr, object, flags);
         break;
-        
+
       case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_OBJECT:
       case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_BLOCK:
         /*******
